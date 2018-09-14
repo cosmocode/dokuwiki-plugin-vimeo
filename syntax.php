@@ -6,11 +6,6 @@
  * @author  Michael Große <dokuwiki@cosmocode.de>
  */
 
-// must be run within Dokuwiki
-if (!defined('DOKU_INC')) {
-    die();
-}
-
 class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
 {
     /**
@@ -18,7 +13,7 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
      */
     public function getType()
     {
-        return 'FIXME: container|baseonly|formatting|substition|protected|disabled|paragraphs';
+        return 'substition';
     }
 
     /**
@@ -26,7 +21,7 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
      */
     public function getPType()
     {
-        return 'FIXME: normal|block|stack';
+        return 'block';
     }
 
     /**
@@ -34,7 +29,7 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
      */
     public function getSort()
     {
-        return FIXME;
+        return 100;
     }
 
     /**
@@ -44,14 +39,8 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
      */
     public function connectTo($mode)
     {
-        $this->Lexer->addSpecialPattern('<FIXME>', $mode, 'plugin_vimeo');
-//        $this->Lexer->addEntryPattern('<FIXME>', $mode, 'plugin_vimeo');
+        $this->Lexer->addSpecialPattern('{{vimeoAlbum>.+?}}', $mode, 'plugin_vimeo');
     }
-
-//    public function postConnect()
-//    {
-//        $this->Lexer->addExitPattern('</FIXME>', 'plugin_vimeo');
-//    }
 
     /**
      * Handle matches of the vimeo syntax
@@ -65,7 +54,9 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
      */
     public function handle($match, $state, $pos, Doku_Handler $handler)
     {
-        $data = array();
+        $albumID = substr($match, strlen('{{vimeoAlbum>'), -2);
+        $videos = $this->getAlbumVideos($albumID);
+        $data = ['videos' => $videos];
 
         return $data;
     }
@@ -85,7 +76,70 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
             return false;
         }
 
+        $videos = $data['videos'];
+
+        $renderer->doc .= '<div class="plugin-vimeo-album">';
+
+        foreach ($videos as $video) {
+            $renderer->doc .= '<div class="plugin-vimeo-video" data-videoiframe="' . hsc($video['embed']['html']) . '">';
+            $renderer->doc .= '<figure>';
+            $src = $video['pictures']['sizes'][2]['link_with_play_button'];
+            $srcset = [];
+            foreach ($video['pictures']['sizes'] as $picture) {
+                $srcset [] = $picture['link_with_play_button'] . ' ' . $picture['width'] . 'w';
+            }
+            $caption = $video['name'];
+            $renderer->doc .= '<img srcset="' . implode(',', $srcset) . '" src="' . $src . '" alt="' . $caption . '">';
+            $renderer->doc .= '<figcaption>' . $caption . '</figcaption>';
+            $renderer->doc .= '</figure>';
+            $renderer->doc .= '</div>';
+        }
+
+        $renderer->doc .= '</div>';
+
         return true;
+    }
+
+    /**
+     * Get all video data for the given album id
+     *
+     * The albumID must be owned be the user that provided the configured access token
+     *
+     * This also gets the paged videos in further requests if there are more than 100 videos
+     *
+     * @param string $albumID
+     *
+     * @return array data for the videos in the album
+     */
+    protected function getAlbumVideos($albumID) {
+        $http = new \DokuHTTPClient();
+        $http->headers['Authorization'] = 'Bearer ' . $this->getConf('accessToken');
+        $http->agent = 'DokuWiki HTTP Client (Vimeo Plugin)';
+        $fields = 'name,embed.html,pictures.sizes';
+        $base = 'https://api.vimeo.com';
+        $url = $base . '/me/albums/' . $albumID . '/videos?per_page=100&fields=' . $fields;
+        $http->sendRequest($url);
+
+        $body = $http->resp_body;
+        $respData = json_decode($body, true);
+        $videos = $respData['data'];
+
+        if (empty($respData['paging']['next'])) {
+            return $videos;
+        }
+
+        while(true) {
+            $url = $base . $respData['paging']['next'];
+            $http->sendRequest($url);
+            $body = $http->resp_body;
+            $respData = json_decode($body, true);
+            $videos = array_merge($videos, $respData['videos']);
+            if (empty($respData['paging']['next'])) {
+                break;
+            }
+        }
+
+        return $videos;
     }
 }
 

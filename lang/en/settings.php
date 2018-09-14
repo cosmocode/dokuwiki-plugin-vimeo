@@ -6,5 +6,5 @@
  */
 
 // keys need to match the config setting name
-// $lang['fixme'] = 'FIXME';
+$lang['accessToken'] = 'Vimeo Access Token';
 
