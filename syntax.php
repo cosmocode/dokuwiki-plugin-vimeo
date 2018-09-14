@@ -117,12 +117,46 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
             throw new RuntimeException('Vimeo access token not configured! Please see documentation.');
         }
 
+        $fields = 'name,embed.html,pictures.sizes';
+        $endpoint = '/me/albums/' . $albumID . '/videos?per_page=100&fields=' . $fields;
+        $errors = [];
+        $respData = $this->sendVimeoRequest($accessToken, $endpoint, $errors);
+        $videos = $respData['data'];
+
+        if (!empty($respData['paging']['next'])) {
+            while (true) {
+                $respData = $this->sendVimeoRequest($accessToken, $respData['paging']['next'], $errors);
+                $videos = array_merge($videos, $respData['videos']);
+                if (empty($respData['paging']['next'])) {
+                    break;
+                }
+            }
+        }
+
+        return [
+            'videos' => $videos,
+            'errors' => $errors,
+        ];
+    }
+
+    /**
+     * Make a single request to Vimeo and return the parsed body
+     *
+     * @param string $accessToken The access token
+     * @param string $endpoint    The endpoint to which to connect, must begin with a /
+     * @param array  $errors      If the rate-limit is hit, then an error-message is written in here
+     *
+     * @return mixed
+     *
+     * @throws RuntimeException  If the server returns an error
+     */
+    protected function sendVimeoRequest($accessToken, $endpoint, &$errors)
+    {
         $http = new \DokuHTTPClient();
         $http->headers['Authorization'] = 'Bearer ' . $accessToken;
         $http->agent = 'DokuWiki HTTP Client (Vimeo Plugin)';
-        $fields = 'name,embed.html,pictures.sizes';
         $base = 'https://api.vimeo.com';
-        $url = $base . '/me/albums/' . $albumID . '/videos?per_page=100&fields=' . $fields;
+        $url = $base . $endpoint;
         $http->sendRequest($url);
 
         $body = $http->resp_body;
@@ -136,37 +170,13 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
             );
         }
 
-        $result = [
-            'errors' => [],
-            'videos' => [],
-        ];
-
         $remainingRateLimit = $http->resp_headers['x-ratelimit-remaining'];
         if ($remainingRateLimit < 10) {
             dbglog($http->resp_headers, __FILE__ . ': ' . __LINE__);
-            $result['errors'][] = 'The remaining Vimeo rate-limit is very low. Please check back in 15min or later';
+            $errors[] = 'The remaining Vimeo rate-limit is very low. Please check back in 15min or later';
         }
 
-        $videos = $respData['data'];
-
-        if (empty($respData['paging']['next'])) {
-            $result['videos'] = $videos;
-            return $result;
-        }
-
-        while (true) {
-            $url = $base . $respData['paging']['next'];
-            $http->sendRequest($url);
-            $body = $http->resp_body;
-            $respData = json_decode($body, true);
-            $videos = array_merge($videos, $respData['videos']);
-            if (empty($respData['paging']['next'])) {
-                break;
-            }
-        }
-
-        $result['videos'] = $videos;
-        return $result;
+        return $respData;
     }
 
     /**
