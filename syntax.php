@@ -55,8 +55,11 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
     public function handle($match, $state, $pos, Doku_Handler $handler)
     {
         $albumID = substr($match, strlen('{{vimeoAlbum>'), -2);
-        $videos = $this->getAlbumVideos($albumID);
-        $data = ['videos' => $videos];
+        try {
+            $data = $this->getAlbumVideos($albumID);
+        } catch (Exception $e) {
+            $data = ['errors' => [$e->getMessage() . '; Code: ' . $e->getCode()]];
+        }
 
         return $data;
     }
@@ -76,23 +79,19 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
             return false;
         }
 
-        $videos = $data['videos'];
-
         $renderer->doc .= '<div class="plugin-vimeo-album">';
 
-        foreach ($videos as $video) {
-            $renderer->doc .= '<div class="plugin-vimeo-video" data-videoiframe="' . hsc($video['embed']['html']) . '">';
-            $renderer->doc .= '<figure>';
-            $src = $video['pictures']['sizes'][2]['link_with_play_button'];
-            $srcset = [];
-            foreach ($video['pictures']['sizes'] as $picture) {
-                $srcset [] = $picture['link_with_play_button'] . ' ' . $picture['width'] . 'w';
+        if (!empty($data['errors'])) {
+            foreach ($data['errors'] as $error) {
+                msg('Vimeo Plugin Error: ' . hsc($error), -1);
             }
-            $caption = $video['name'];
-            $renderer->doc .= '<img srcset="' . implode(',', $srcset) . '" src="' . $src . '" alt="' . $caption . '">';
-            $renderer->doc .= '<figcaption>' . $caption . '</figcaption>';
-            $renderer->doc .= '</figure>';
-            $renderer->doc .= '</div>';
+        }
+
+        if (!empty($data['videos'])) {
+            $videos = $data['videos'];
+            foreach ($videos as $video) {
+                $this->renderVideo($renderer, $video);
+            }
         }
 
         $renderer->doc .= '</div>';
@@ -111,9 +110,15 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
      *
      * @return array data for the videos in the album
      */
-    protected function getAlbumVideos($albumID) {
+    protected function getAlbumVideos($albumID)
+    {
+        $accessToken = $this->getConf('accessToken');
+        if (empty($accessToken)) {
+            throw new RuntimeException('Vimeo access token not configured! Please see documentation.');
+        }
+
         $http = new \DokuHTTPClient();
-        $http->headers['Authorization'] = 'Bearer ' . $this->getConf('accessToken');
+        $http->headers['Authorization'] = 'Bearer ' . $accessToken;
         $http->agent = 'DokuWiki HTTP Client (Vimeo Plugin)';
         $fields = 'name,embed.html,pictures.sizes';
         $base = 'https://api.vimeo.com';
@@ -122,13 +127,34 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
 
         $body = $http->resp_body;
         $respData = json_decode($body, true);
+
+        if (!empty($respData['error'])) {
+            dbglog($http->resp_headers, __FILE__ . ': ' . __LINE__);
+            throw new RuntimeException(
+                $respData['error'] . ' ' . $respData['developer_message'],
+                $respData['error_code']
+            );
+        }
+
+        $result = [
+            'errors' => [],
+            'videos' => [],
+        ];
+
+        $remainingRateLimit = $http->resp_headers['x-ratelimit-remaining'];
+        if ($remainingRateLimit < 10) {
+            dbglog($http->resp_headers, __FILE__ . ': ' . __LINE__);
+            $result['errors'][] = 'The remaining Vimeo rate-limit is very low. Please check back in 15min or later';
+        }
+
         $videos = $respData['data'];
 
         if (empty($respData['paging']['next'])) {
-            return $videos;
+            $result['videos'] = $videos;
+            return $result;
         }
 
-        while(true) {
+        while (true) {
             $url = $base . $respData['paging']['next'];
             $http->sendRequest($url);
             $body = $http->resp_body;
@@ -139,7 +165,32 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
             }
         }
 
-        return $videos;
+        $result['videos'] = $videos;
+        return $result;
+    }
+
+    /**
+     * Render a preview image and put the video iframe-html into a data attribute
+     *
+     * This offers all available images in a srcset, so the browser can decide which to load
+     *
+     * @param Doku_Renderer $renderer
+     * @param array         $video    The video data
+     */
+    protected function renderVideo(Doku_Renderer $renderer, $video)
+    {
+        $renderer->doc .= '<div class="plugin-vimeo-video" data-videoiframe="' . hsc($video['embed']['html']) . '">';
+        $renderer->doc .= '<figure>';
+        $src = $video['pictures']['sizes'][2]['link_with_play_button'];
+        $srcset = [];
+        foreach ($video['pictures']['sizes'] as $picture) {
+            $srcset [] = $picture['link_with_play_button'] . ' ' . $picture['width'] . 'w';
+        }
+        $caption = $video['name'];
+        $renderer->doc .= '<img srcset="' . implode(',', $srcset) . '" src="' . $src . '" alt="' . $caption . '">';
+        $renderer->doc .= '<figcaption>' . $caption . '</figcaption>';
+        $renderer->doc .= '</figure>';
+        $renderer->doc .= '</div>';
     }
 }
 
