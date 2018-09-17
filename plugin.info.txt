@@ -1,7 +1,7 @@
 base   vimeo
 author Michael Große
 email  dokuwiki@cosmocode.de
-date   2018-09-14
+date   2018-09-17
 name   vimeo plugin
 desc   Embed Vimeo Albums
 url    https://dokuwiki.org/plugin:vimeo
