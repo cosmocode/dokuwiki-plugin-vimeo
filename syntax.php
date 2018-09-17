@@ -118,7 +118,7 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
         }
 
         $fields = 'name,embed.html,pictures.sizes,privacy';
-        $endpoint = '/me/albums/' . $albumID . '/videos?per_page=100&fields=' . $fields;
+        $endpoint = '/me/albums/' . $albumID . '/videos?sort=manual&per_page=100&fields=' . $fields;
         $errors = [];
         $respData = $this->sendVimeoRequest($accessToken, $endpoint, $errors);
         $videos = $respData['data'];
