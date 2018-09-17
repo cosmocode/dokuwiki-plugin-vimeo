@@ -117,7 +117,7 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
             throw new RuntimeException('Vimeo access token not configured! Please see documentation.');
         }
 
-        $fields = 'name,embed.html,pictures.sizes';
+        $fields = 'name,embed.html,pictures.sizes,privacy';
         $endpoint = '/me/albums/' . $albumID . '/videos?per_page=100&fields=' . $fields;
         $errors = [];
         $respData = $this->sendVimeoRequest($accessToken, $endpoint, $errors);
@@ -189,6 +189,11 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
      */
     protected function renderVideo(Doku_Renderer $renderer, $video)
     {
+        $caption = hsc($video['name']);
+        if ($video['privacy']['embed'] === 'private') {
+            msg(sprintf($this->getLang('embed_deactivated'), $caption), 2);
+            return;
+        }
         $renderer->doc .= '<div class="plugin-vimeo-video" data-videoiframe="' . hsc($video['embed']['html']) . '">';
         $renderer->doc .= '<figure>';
         $src = $video['pictures']['sizes'][2]['link_with_play_button'];
@@ -196,7 +201,6 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
         foreach ($video['pictures']['sizes'] as $picture) {
             $srcset [] = $picture['link_with_play_button'] . ' ' . $picture['width'] . 'w';
         }
-        $caption = $video['name'];
         $renderer->doc .= '<img srcset="' . implode(',', $srcset) . '" src="' . $src . '" alt="' . $caption . '">';
         $renderer->doc .= '<figcaption>' . $caption . '</figcaption>';
         $renderer->doc .= '</figure>';

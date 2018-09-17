@@ -9,5 +9,5 @@
 // $lang['menu'] = 'Your menu entry';
 
 // custom language strings for the plugin
-// $lang['fixme'] = 'FIXME';
+$lang['embed_deactivated'] = 'Embedding has been deactivated for the video "%s". Please enable it a vimeo.com';
 
