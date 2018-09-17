@@ -3,6 +3,7 @@ jQuery(function (){
         const $this = jQuery(this);
         $this.off('click.startVideo');
         $this.find('img').remove();
+        $this.addClass('is-player');
         const encodedIframe = $this.data('videoiframe');
         var textArea = document.createElement('textarea');
         textArea.innerHTML = encodedIframe;
