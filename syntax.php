@@ -117,7 +117,7 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
             throw new RuntimeException('Vimeo access token not configured! Please see documentation.');
         }
 
-        $fields = 'name,embed.html,pictures.sizes,privacy';
+        $fields = 'name,description,embed.html,pictures.sizes,privacy,release_time';
         $endpoint = '/me/albums/' . $albumID . '/videos?sort=manual&per_page=100&fields=' . $fields;
         $errors = [];
         $respData = $this->sendVimeoRequest($accessToken, $endpoint, $errors);
@@ -189,9 +189,9 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
      */
     protected function renderVideo(Doku_Renderer $renderer, $video)
     {
-        $caption = hsc($video['name']);
+        $title = hsc($video['name']);
         if ($video['privacy']['embed'] === 'private') {
-            msg(sprintf($this->getLang('embed_deactivated'), $caption), 2);
+            msg(sprintf($this->getLang('embed_deactivated'), $title), 2);
             return;
         }
         $renderer->doc .= '<div class="plugin-vimeo-video" data-videoiframe="' . hsc($video['embed']['html']) . '">';
@@ -201,10 +201,33 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
         foreach ($video['pictures']['sizes'] as $picture) {
             $srcset [] = $picture['link_with_play_button'] . ' ' . $picture['width'] . 'w';
         }
-        $renderer->doc .= '<img srcset="' . implode(',', $srcset) . '" src="' . $src . '" alt="' . $caption . '">';
+        $renderer->doc .= '<img srcset="' . implode(',', $srcset) . '" src="' . $src . '" alt="' . $title . '">';
+        $caption = $this->createCaption($video);
         $renderer->doc .= '<figcaption>' . $caption . '</figcaption>';
         $renderer->doc .= '</figure>';
         $renderer->doc .= '</div>';
+    }
+
+    /**
+     * Build the caption for a video
+     *
+     * @param array $video the video data
+     *
+     * @return string HTML for the video caption
+     */
+    protected function createCaption($video) {
+        $title = '<span class="vimeo-video-title">' . hsc($video['name']) . '</span>';
+
+        $releaseDateObject = new \DateTime($video['release_time']);
+        $releaseTime = dformat($releaseDateObject->format('U'));
+        $releaseString = '<span class="vimeo-video-releaseTime">'
+            . $this->getLang('released')
+            . ' <time>' . $releaseTime .'</time></span>';
+
+        $description = "<span class='vimeo-video-description'>" . hsc($video['description']) . '</span>';
+
+        return $title . $releaseString . $description;
+
     }
 }
 
