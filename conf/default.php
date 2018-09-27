@@ -6,4 +6,5 @@
  */
 
 $conf['accessToken']    = '';
+$conf['thumbnailWidthPercent']     = '30';
 

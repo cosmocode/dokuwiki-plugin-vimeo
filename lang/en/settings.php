@@ -7,4 +7,5 @@
 
 // keys need to match the config setting name
 $lang['accessToken'] = 'Vimeo Access Token';
+$lang['thumbnailWidthPercent'] = 'Width of the thumbnails in percent';
 

@@ -194,7 +194,9 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
             msg(sprintf($this->getLang('embed_deactivated'), $title), 2);
             return;
         }
-        $renderer->doc .= '<div class="plugin-vimeo-video" data-videoiframe="' . hsc($video['embed']['html']) . '">';
+        $thumbnailWidthPercent = $this->getConf('thumbnailWidthPercent');
+        $widthAttr = 'style="width: ' . $thumbnailWidthPercent . '%;"';
+        $renderer->doc .= '<div class="plugin-vimeo-video"' . $widthAttr . ' data-videoiframe="' . hsc($video['embed']['html']) . '">';
         $renderer->doc .= '<figure>';
         $src = $video['pictures']['sizes'][2]['link_with_play_button'];
         $srcset = [];
