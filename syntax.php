@@ -79,6 +79,7 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
             return false;
         }
 
+        $this->addAdminPurgeLink($renderer);
         $renderer->doc .= '<div class="plugin-vimeo-album">';
 
         if (!empty($data['errors'])) {
@@ -97,6 +98,23 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
         $renderer->doc .= '</div>';
 
         return true;
+    }
+
+    /**
+     * Add a link for managers+ with which they can purge the current page's cache and trigger a new request to vimeo
+     *
+     * @param Doku_Renderer $renderer
+     */
+    protected function addAdminPurgeLink(Doku_Renderer $renderer)
+    {
+        if (!auth_ismanager()) {
+            return;
+        }
+
+        global $ID;
+        $href = wl($ID, ['purge' => 'true']);
+        $reloadLink = '<a href="' . $href . '" rel="noreferrer">' . $this->getLang('purgeLink') . '</a>';
+        $renderer->doc .= $reloadLink;
     }
 
     /**

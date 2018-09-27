@@ -8,3 +8,4 @@
 // custom language strings for the plugin
 $lang['embed_deactivated'] = 'Einbettung wurde deaktiviert für das Video "%s". Bitte aktivieren auf vimeo.com';
 $lang['released'] = 'Veröffentlicht:';
+$lang['purgeLink'] = 'Inhalte von Vimeo neu anfordern';
