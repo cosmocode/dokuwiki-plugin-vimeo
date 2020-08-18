@@ -155,6 +155,7 @@ class syntax_plugin_vimeo extends DokuWiki_Syntax_Plugin
         $http = new \DokuHTTPClient();
         $http->headers['Authorization'] = 'Bearer ' . $accessToken;
         $http->agent = 'DokuWiki HTTP Client (Vimeo Plugin)';
+        $http->keep_alive = false;
         $base = 'https://api.vimeo.com';
         $url = $base . $endpoint;
         $http->sendRequest($url);
